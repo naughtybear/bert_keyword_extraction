@@ -18,7 +18,7 @@ class QADataset(Dataset):
         '''
         assert mode in ["train", "test"]
         self.mode = mode
-        self.tokenized_question, self.labeled_key, _ = pickle.load(open('./pickle/data.pkl', 'rb'))
+        self.tokenized_question, self.labeled_key, _ = pickle.load(open(f"./pickle/{self.mode}_data.pkl", 'rb'))
         self.label2idx = {"[PAD]": 0, "B": 1, "I": 2, "O": 3}
         self.tokenizer = tokenizer
         self.len = len(self.tokenized_question)
