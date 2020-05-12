@@ -19,7 +19,7 @@ tags_vals = ["[PAD]", "B", "I", "O"]
 def test():
     tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
     tokenized_question, labeled_key, max_len = pickle.load(open('./pickle/train_data.pkl', 'rb'))
-    model = torch.load("./pickle/model_v1.pkl")
+    model = torch.load("./pickle/model_v4.pkl")
     model.cuda()
     model.eval()
 

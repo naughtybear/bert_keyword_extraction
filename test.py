@@ -1,89 +1,122 @@
 '''
-輸出test data 的結果
+可以即時測試的test檔
+
+***要處理輸入小於max len 情況***
+***要可以輸出英文***
 '''
 from transformers  import BertForTokenClassification, BertTokenizer
 from torch.utils.data import DataLoader
-from dataset import QADataset
 from torch import optim
 import torch
 import numpy as np
 import pickle
 import re
 import pandas as pd
+import csv
+from tqdm import tqdm
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tag2idx = {"[PAD]": 0, "B": 1, "I": 2, "O": 3}
 tags_vals = ["[PAD]", "B", "I", "O"]
 
-def test(batch_size = 4):
+def test():
     tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-    test_dataset = QADataset("test", tokenizer=tokenizer)
-    test_data_loader = DataLoader(test_dataset, batch_size = batch_size)
-    print(test_dataset)
+    _, tokenized_question, labeled_key, max_len = pickle.load(open('./pickle/train_data.pkl', 'rb'))
 
-    model = torch.load("./pickle/model_v1.pkl")
+    csvfile = open("./data/out99.csv", "w", newline="", encoding="utf-8")
+    csvwriter = csv.writer(csvfile)
+    
+    df_test = pd.read_csv(f"./data/test_data_v3.csv")
+    df_test = df_test.dropna()
+    questions = list(df_test["Body"])
+
+    model = torch.load("./pickle/model_v5.pkl")
     model.cuda()
     model.eval()
 
-    # 顯示test data
-    predictions = []
-    key_words = []
     with torch.no_grad():
-        for test_data in test_data_loader:
-            questions_ids, mask_ids, tokenized_question = test_data
-            questions_ids = questions_ids.to(device)
-            mask_ids = mask_ids.to(device)
+        for question in tqdm(questions):
+            #print(sentence)
+            process_question = re.sub("\\s+", "", question)
+            # 刪除多餘換行
+            process_question = re.sub("\r*\n*", "", process_question)
+            # 刪除括號內英文
+            process_question = re.sub("\\([a-z A-Z \\-]*\\)", "", process_question)
+            if len(process_question) > max_len:
+                continue
 
-            output =  model(questions_ids, token_type_ids=None, attention_mask=mask_ids)
+            # 將輸入加入cls並padding到max len
+            sentence = ["[CLS]"] + tokenizer.tokenize(process_question)
+            sentence = sentence + ["[PAD]"] * (max_len - len(sentence))
+
+            # 將輸入斷詞並產生mask
+            sentence_ids = tokenizer.convert_tokens_to_ids(sentence)
+            mask = [float(i>0) for i in sentence_ids]
+            sentence_ids = torch.tensor([sentence_ids], dtype = torch.long).to(device)
+            mask = torch.tensor([mask], dtype = torch.long).to(device)
+
+            output =  model(sentence_ids, token_type_ids=None, attention_mask=mask)
             output = output[0].detach().cpu().numpy()
             prediction = [list(p) for p in np.argmax(output, axis=2)]
-            predictions.extend(prediction)
+
+            for i in range(len(sentence)):
+                sentence[i] = re.sub("##", "", sentence[i])
             
-            for i in range(len(prediction)):
-                key_word = []
-                for j in range(len(prediction[i])):
-                    if prediction[i][j] == 1:
-                        key_word.append("，")
-                        key_word.append(tokenized_question[j][i])
+            # 比對label找出關鍵字
+            key_word = []
+            unk_count = 0
+            for i in range(len(prediction[0])):
+                if unk_count != 0 and sentence[i] != "[UNK]":
+                    start = process_question.find(sentence[i-unk_count-1], i-unk_count-2) + len(sentence[i-unk_count-1])
+                    end = process_question.find(sentence[i], i-1)
+                    # print(process_question[start : end])
+                    key_word.append(process_question[start : end])
+                    unk_count = 0
 
-                    elif prediction[i][j] == 2:
-                        key_word.append(tokenized_question[j][i])
+                elif unk_count != 0 and sentence[i] == "[UNK]":
+                    unk_count = unk_count + 1
+                    continue
 
-                    
-                #key_words.append(key_word)
-                if(len(key_word) == 0):
-                    key_words.append(key_word)
-                    #print("[]")
+                if prediction[0][i] == 1:
+                    key_word.append("，")
+                    if sentence[i] == "[UNK]":
+                        unk_count = unk_count + 1
+                    else:
+                        key_word.append(sentence[i])
+
+                elif prediction[0][i] == 2:
+                    if sentence[i] == "[UNK]":
+                        unk_count = unk_count + 1
+                    else:
+                        key_word.append(sentence[i])
+            
+            
+            # 刪除padding和不必要的符號
+            if(len(key_word) == 0):
+                    csvwriter.writerow([question, "[]"])
                     continue
                 
-                if key_word[0] == "，":
-                    key_word.remove("，")
-                
-                key_word = [x for x in key_word if x != "[PAD]"]
-                
-                while True:
-                    if key_word[-1] == '，':
-                        key_word.pop()
-                    else:
-                        break
-                
-                #print("".join(key_word))
-                key_words.append("".join(key_word))
-    
-        store_to_file(key_words = key_words)
+            if key_word[0] == "，":
+                key_word.remove("，")
+            
+            key_word = [x for x in key_word if x != "[PAD]"]
+            
+            flag = True
+            while True:
+                if(len(key_word) == 0):
+                    csvwriter.writerow([question, "[]"])
+                    flag = False
+                    break
+                if key_word[-1] == '，':
+                    key_word.pop()
+                else:
+                    break
+            
+            if flag == False:
+                continue
 
-def store_to_file(key_words):
-    df = pd.read_csv("./data/test_data_v1.csv")
-    # 把不要的column刪掉
-    df = df.drop("診斷", axis = 1)
-    df = df.drop("回答紀錄", axis = 1)
-    df = df.drop("建議就診科別", axis = 1)
-    df = df.drop("建議檢查", axis = 1)
-    df = df.drop("QusestionTitle", axis = 1)
-    df = df.drop("QuestionId", axis = 1)
-    df["bert_result"] = key_words
-    df.to_csv("./data/compare.csv")
+            key_word = "".join(key_word)
+            csvwriter.writerow([question, key_word])
 
 if __name__ == "__main__":
     test()
-    #store_to_file()

@@ -1,7 +1,5 @@
 '''
 繼承pytorch的dataset
-
-***還沒分train test***
 '''
 import torch
 import pandas as pd
@@ -10,15 +8,12 @@ from transformers  import BertTokenizer #bert斷詞，以字為單位
 import pickle
 
 class QADataset(Dataset):
-    def __init__(self, mode, tokenizer):
+    def __init__(self, tokenizer):
         '''
         ipnut:
-          mode:train mode or test mode
           tokenizer: 使用何種tokenizer
         '''
-        assert mode in ["train", "test"]
-        self.mode = mode
-        self.tokenized_question, self.labeled_key, _ = pickle.load(open(f"./pickle/{self.mode}_data.pkl", 'rb'))
+        self.full_question, self.tokenized_question, self.labeled_key, _ = pickle.load(open(f"./pickle/train_data.pkl", 'rb'))
         self.label2idx = {"[PAD]": 0, "B": 1, "I": 2, "O": 3}
         self.tokenizer = tokenizer
         self.len = len(self.tokenized_question)
@@ -40,10 +35,7 @@ class QADataset(Dataset):
         for token in self.labeled_key[idx]:
             key_ids.append(self.label2idx[token])
         
-        if self.mode == "train":
-          return torch.tensor(question_ids, dtype = torch.long), torch.tensor(mask_ids, dtype = torch.long), torch.tensor(key_ids, dtype = torch.long)
-        elif self.mode == "test":
-          return torch.tensor(question_ids, dtype = torch.long), torch.tensor(mask_ids, dtype = torch.long), self.tokenized_question[idx]
+        return torch.tensor(question_ids, dtype = torch.long), torch.tensor(mask_ids, dtype = torch.long), torch.tensor(key_ids, dtype = torch.long), self.tokenized_question[idx], self.full_question[idx]
 
     def __len__(self):
         '''
@@ -53,7 +45,7 @@ class QADataset(Dataset):
 
 if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-    dataset = QADataset("train", tokenizer=tokenizer)
+    dataset = QADataset(tokenizer=tokenizer)
     for i in range(20):
       print("------------")
       print(i)

@@ -10,6 +10,7 @@ from dataset import QADataset
 from torch import optim
 import torch
 import numpy as np
+import csv
 
 
 PRETRAINED_MODEL_NAME = "bert-base-chinese"
@@ -18,13 +19,16 @@ tag2idx = {"[PAD]": 0, "B": 1, "I": 2, "O": 3}
 tags_vals = ["[PAD]", "B", "I", "O"]
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def train(batch_size = 4, learning_rate = 0.00002, max_norm = 1.0, epochs = 20, if_validation = False):
+def train(batch_size = 4, learning_rate = 0.00002, max_norm = 1.0, epochs = 20, if_validation = False, save_validation = False):
     '''
     input:
         batch_size: 數據batch的大小
         learning_rate: 數據學習率
         max_norm: 梯度正規剪裁的數字
         epochs: 迭代數
+        if_validation: 是否需要做validation，若需要，則會分 10%的訓練資料做validation
+        save_validation: 是否需要將validation的結果儲存，若是True， 則會將validation的最後結果儲存在compare.csv
+                        這個選項要跟if_validation一起打開才有效
     output:
         將model參數用torch.save儲存
     '''
@@ -32,7 +36,7 @@ def train(batch_size = 4, learning_rate = 0.00002, max_norm = 1.0, epochs = 20, 
     if torch.cuda.is_available():
         model.cuda()
     tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-    train_dataset = QADataset("train", tokenizer=tokenizer)
+    train_dataset = QADataset(tokenizer=tokenizer)
     if if_validation == True:
         train_size = int(0.9 * len(train_dataset))
         test_size = len(train_dataset) - train_size
@@ -61,7 +65,7 @@ def train(batch_size = 4, learning_rate = 0.00002, max_norm = 1.0, epochs = 20, 
         total_train_loss = 0
         train_steps_per_epoch = 0
         for _, batch in enumerate(train_data):
-            questions_ids, mask_ids, key_ids = batch
+            questions_ids, mask_ids, key_ids, _, full_question = batch
             # 將data移到gpu
             questions_ids = questions_ids.to(device)
             mask_ids = mask_ids.to(device)
@@ -93,7 +97,7 @@ def train(batch_size = 4, learning_rate = 0.00002, max_norm = 1.0, epochs = 20, 
             eval_steps_per_epoch, eval_examples_per_epoch = 0, 0
             predictions , true_labels = [], []
             for batch in test_data:
-                questions_ids, mask_ids, key_ids = batch
+                questions_ids, mask_ids, key_ids, _, full_question = batch
                 questions_ids = questions_ids.to(device)
                 mask_ids = mask_ids.to(device)
                 key_ids = key_ids.to(device)
@@ -119,8 +123,68 @@ def train(batch_size = 4, learning_rate = 0.00002, max_norm = 1.0, epochs = 20, 
 
             print(f"Validation loss: {eval_loss / eval_steps_per_epoch}")
             print(f"Validation Accuracy: {eval_accuracy / eval_steps_per_epoch}")
+            print("-----------------------")
         
+    # 儲存validation結果
+    if if_validation == True and save_validation == True:
+        csv_file = open("comapre.csv", "w", encoding="utf-8", newline="")
+        writer = csv.writer(csv_file)
+        predictions = []
+        model.eval()
+        for batch in test_data:
+            questions_ids, mask_ids, key_ids, tokenized_question, full_question = batch
+            questions_ids = questions_ids.to(device)
+            mask_ids = mask_ids.to(device)
 
+            output =  model(questions_ids, token_type_ids=None, attention_mask=mask_ids)
+            output = output[0].detach().cpu().numpy()
+            prediction = [list(p) for p in np.argmax(output, axis=2)]
+            predictions.extend(prediction)
+            
+            for i in range(len(prediction)):
+                key_word_pred = []
+                key_word_true = []
+                for j in range(len(prediction[i])):
+                    if prediction[i][j] == 1:
+                        key_word_pred.append("，")
+                        key_word_pred.append(tokenized_question[j][i])
+
+                    elif prediction[i][j] == 2:
+                        key_word_pred.append(tokenized_question[j][i])
+
+                    if key_ids[i][j] == 1:
+                        key_word_true.append("，")
+                        key_word_true.append(tokenized_question[j][i])
+
+                    elif key_ids[i][j] == 2:
+                        key_word_true.append(tokenized_question[j][i])
+                 
+                key_word_true.remove("，")
+                if(len(key_word_pred) == 0):
+                    writer.writerow([full_question[i], "".join(key_word_true), "None"])
+                    continue
+                
+                if key_word_pred[0] == "，":
+                    key_word_pred.remove("，")
+                
+                key_word_pred = [x for x in key_word_pred if x != "[PAD]"]
+                
+                flag = False
+                while True:
+                    if(len(key_word_pred) == 0):
+                        writer.writerow([full_question[i], "".join(key_word_true), "None"])
+                        flag = True
+                        break
+                    if key_word_pred[-1] == '，':
+                        key_word_pred.pop()
+                    else:
+                        break
+                if flag == True:
+                    continue
+                
+                writer.writerow([full_question[i], "".join(key_word_true), "".join(key_word_pred)])
+    
+    # 儲存模型
     torch.save(model, "./pickle/model_v1.pkl")
 
 def flat_accuracy(preds, labels):
@@ -129,7 +193,9 @@ def flat_accuracy(preds, labels):
     return np.sum(pred_flat == labels_flat) / len(labels_flat)
     
 if __name__ == "__main__":
-    train(batch_size = 4, 
+    train(batch_size = 12, 
             learning_rate = 0.00002, 
             max_norm = 1.0, 
-            epochs = 20)
+            epochs = 20,
+            if_validation = True,
+            save_validation = True)
