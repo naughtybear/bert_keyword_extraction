@@ -6,10 +6,11 @@
 import pandas as pd
 import re
 import pickle
-from transformers  import BertTokenizer #bert斷詞，以字為單位
+from transformers import BertTokenizer  # bert斷詞，以字為單位
 from tqdm import tqdm
 
-def preprocess(tokenizer, data_version, max_len = -1):
+
+def preprocess(tokenizer, data_version, max_len=-1):
     '''
     input:
         tokenizer: 要用哪種tokenizer，目前都是用bert的
@@ -33,7 +34,7 @@ def preprocess(tokenizer, data_version, max_len = -1):
 
     # 將關鍵字label
     for i in tqdm(range(data_len)):
-        #print(f"num:{keys[i]}")
+        # print(f"num:{keys[i]}")
         # 統一逗號
         keys[i] = re.sub(",", "，", keys[i])
         # 刪除多餘換行
@@ -50,7 +51,7 @@ def preprocess(tokenizer, data_version, max_len = -1):
 
         if len(questions[i]) > max_len:
             continue
-        
+
         full_question.append(questions[i])
         # 將關鍵字label
         last = 1
@@ -71,12 +72,13 @@ def preprocess(tokenizer, data_version, max_len = -1):
                     print(token)
                     print("error end")
                     break
-                
+
                 if search_start < position_start:
                     search_start = position_start
 
                 try:
-                    position_end = question_token.index(token[-1], search_start)
+                    position_end = question_token.index(
+                        token[-1], search_start)
                 except ValueError:
                     print(f"num:{i}")
                     print(questions[i])
@@ -87,7 +89,8 @@ def preprocess(tokenizer, data_version, max_len = -1):
 
                 # 將問題用關鍵字label
                 if position_end - position_start + 1 == len(token):
-                    label = label + (position_start - last) * ["O"] + ["B"] + (position_end - position_start) * ["I"]
+                    label = (label + (position_start - last) * ["O"] + ["B"]
+                             + (position_end - position_start) * ["I"])
                     last = position_end + 1
                     flag = False
                 elif position_end - position_start + 1 > len(token):
@@ -98,22 +101,24 @@ def preprocess(tokenizer, data_version, max_len = -1):
 
         # 把最後沒有文字的地方補零
         label = label + (len(question_token) - last) * ["O"]
-        #print(f"label: {len(label)}   ques_token:{len(question_token)}")
-        #print(f"{len(label)}, {len(question_token)}")
+        # print(f"label: {len(label)}   ques_token:{len(question_token)}")
+        # print(f"{len(label)}, {len(question_token)}")
         assert len(label) == len(question_token)
 
         label = label + (max_len - len(label)) * ["[PAD]"]
-        question_token = question_token + (max_len - len(question_token)) * ["[PAD]"]
+        question_token = (question_token
+                          + (max_len - len(question_token)) * ["[PAD]"])
 
         assert len(label) == len(question_token) == max_len
-
 
         labeled_key.append(label)
         tokenized_question.append(question_token)
 
     with open("./pickle/train_data.pkl", "wb") as file:
-        pickle.dump((full_question, tokenized_question, labeled_key, max_len), file)
+        pickle.dump(
+            (full_question, tokenized_question, labeled_key, max_len), file)
+
 
 if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-    preprocess(tokenizer = tokenizer, data_version = 4)
+    preprocess(tokenizer=tokenizer, data_version=4)
