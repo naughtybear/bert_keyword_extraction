@@ -121,4 +121,4 @@ def preprocess(tokenizer, data_version, max_len=-1):
 
 if __name__ == "__main__":
     tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-    preprocess(tokenizer=tokenizer, data_version=4)
+    preprocess(tokenizer=tokenizer, data_version=5, max_len=512)

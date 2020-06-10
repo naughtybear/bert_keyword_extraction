@@ -27,7 +27,7 @@ def test():
     df_test = df_test.dropna()
     questions = list(df_test["Body"])
 
-    model = torch.load("./pickle/model_v5.pkl")
+    model = torch.load("./pickle/model_v2.pkl")
     model.cuda()
     model.eval()
 

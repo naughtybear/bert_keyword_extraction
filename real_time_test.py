@@ -14,10 +14,11 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def test():
     tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-    (tokenized_question,
+    (_,
+     tokenized_question,
      labeled_key,
      max_len) = pickle.load(open('./pickle/train_data.pkl', 'rb'))
-    model = torch.load("./pickle/model_v4.pkl")
+    model = torch.load("./pickle/model_v2.pkl")
     model.cuda()
     model.eval()
 

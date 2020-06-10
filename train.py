@@ -10,6 +10,7 @@ from dataset import QADataset
 import torch
 import numpy as np
 import csv
+from tqdm import tqdm
 
 
 PRETRAINED_MODEL_NAME = "bert-base-chinese"
@@ -77,7 +78,7 @@ def train(batch_size=4,
         model.train()
         total_train_loss = 0
         train_steps_per_epoch = 0
-        for _, batch in enumerate(train_data):
+        for batch in tqdm(train_data):
             questions_ids, mask_ids, key_ids, _, full_question = batch
             # 將data移到gpu
             questions_ids = questions_ids.to(device)
