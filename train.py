@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 
 PRETRAINED_MODEL_NAME = "bert-base-chinese"
+# PRETRAINED_MODEL_NAME = "bert-base-multilingual-cased"
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -41,7 +42,7 @@ def train(batch_size=4,
         PRETRAINED_MODEL_NAME, num_labels=4)  # 輸出的label最多到4
     if torch.cuda.is_available():
         model.cuda()
-    tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
+    tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)
     train_dataset = QADataset(tokenizer=tokenizer)
     if if_validation is True:
         train_size = int(0.9 * len(train_dataset))
@@ -220,9 +221,9 @@ def flat_accuracy(preds, labels):
 
 
 if __name__ == "__main__":
-    train(batch_size=12,
+    train(batch_size=16,
           learning_rate=0.00002,
           max_norm=1.0,
-          epochs=20,
+          epochs=4,
           if_validation=True,
           save_validation=True)

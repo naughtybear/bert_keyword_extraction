@@ -11,10 +11,11 @@ import csv
 from tqdm import tqdm
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+PRETRAINED_MODEL_NAME = "bert-base-chinese"
+#PRETRAINED_MODEL_NAME = "bert-base-multilingual-cased"
 
 def test():
-    tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
+    tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)
     (_,
      tokenized_question,
      labeled_key,
@@ -23,11 +24,11 @@ def test():
     csvfile = open("./data/out99.csv", "w", newline="", encoding="utf-8")
     csvwriter = csv.writer(csvfile)
 
-    df_test = pd.read_csv("./data/test_data_v3.csv")
+    df_test = pd.read_csv("./data/test_data_v4.csv")
     df_test = df_test.dropna()
     questions = list(df_test["Body"])
 
-    model = torch.load("./pickle/model_v2.pkl")
+    model = torch.load("./pickle/model_v5.pkl")
     model.cuda()
     model.eval()
 
