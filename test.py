@@ -96,7 +96,7 @@ def test():
 
             # 刪除padding和不必要的符號
             if(len(key_word) == 0):
-                csvwriter.writerow([question, "[]"])
+                csvwriter.writerow([question, "N/A"])
                 continue
 
             if key_word[0] == "，":
@@ -107,7 +107,7 @@ def test():
             flag = True
             while True:
                 if(len(key_word) == 0):
-                    csvwriter.writerow([question, "[]"])
+                    csvwriter.writerow([question, "N/A"])
                     flag = False
                     break
                 if key_word[-1] == '，':

@@ -13,7 +13,8 @@ import csv
 from tqdm import tqdm
 
 
-PRETRAINED_MODEL_NAME = "bert-base-chinese"
+# PRETRAINED_MODEL_NAME = "bert-base-chinese"
+PRETRAINED_MODEL_NAME = "hfl/chinese-bert-wwm-ext"
 # PRETRAINED_MODEL_NAME = "bert-base-multilingual-cased"
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -221,9 +222,9 @@ def flat_accuracy(preds, labels):
 
 
 if __name__ == "__main__":
-    train(batch_size=16,
+    train(batch_size=12,
           learning_rate=0.00002,
           max_norm=1.0,
-          epochs=4,
+          epochs=6,
           if_validation=True,
           save_validation=True)

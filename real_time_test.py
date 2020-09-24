@@ -1,25 +1,23 @@
-'''
+"""
 可以即時測試的test檔
-
-***要處理輸入小於max len 情況***
-'''
+"""
+import pickle
+import re
 from transformers import BertTokenizer
 import torch
 import numpy as np
-import pickle
-import re
 
-device = torch.device("cuda:0")
-PRETRAINED_MODEL_NAME = "bert-base-chinese"
-# PRETRAINED_MODEL_NAME = "bert-base-multilingual-cased"
+DEVICE = torch.device("cuda:0")
+# PRETRAINED_MODEL_NAME = "bert-base-chinese"
+PRETRAINED_MODEL_NAME = "hfl/chinese-bert-wwm-ext"
+
 
 def test():
     tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)
-    (_,
-     tokenized_question,
-     labeled_key,
-     max_len) = pickle.load(open('D:/python/keyword_extraction/pickle/train_data.pkl', 'rb'))
-    model = torch.load("D:/python/keyword_extraction/pickle/model_v3.pkl")
+    (_, tokenized_question, labeled_key, max_len) = pickle.load(
+        open("D:/python/keyword_extraction/pickle/train_data.pkl", "rb")
+    )
+    model = torch.load("D:/python/keyword_extraction/pickle/model_v5.pkl")
     model.cuda()
     model.eval()
 
@@ -48,33 +46,29 @@ def test():
             # 將輸入斷詞並產生mask
             sentence_ids = tokenizer.convert_tokens_to_ids(sentence)
             mask = [float(i > 0) for i in sentence_ids]
-            
-            sentence_ids = torch.tensor(
-                [sentence_ids], dtype=torch.long).to(device)
-            mask = torch.tensor([mask], dtype=torch.long).to(device)
-            '''
-            sentence_ids = torch.tensor(
-                [sentence_ids], dtype=torch.long)
-            mask = torch.tensor([mask], dtype=torch.long)
-            '''
 
-            output = model(
-                sentence_ids, token_type_ids=None, attention_mask=mask)
+            sentence_ids = torch.tensor([sentence_ids], dtype=torch.long).to(DEVICE)
+            mask = torch.tensor([mask], dtype=torch.long).to(DEVICE)
+
+            output = model(sentence_ids, token_type_ids=None, attention_mask=mask)
             output = output[0].detach().cpu().numpy()
             prediction = [list(p) for p in np.argmax(output, axis=2)]
 
-            # 比對label找出關鍵字
+            # 刪除英文前面的 ##
+            for i in range(len(sentence)):
+                sentence[i] = re.sub("##", "", sentence[i])
+
+            # 比對label找出關鍵字，把unknown跟原始與句作比對並抓出unknown原本是甚麼字
             key_word = []
             unk_count = 0
             for i in range(len(prediction[0])):
                 if unk_count != 0 and sentence[i] != "[UNK]":
-                    start = (process_question.find(
-                        sentence[i-unk_count-1], i-unk_count-2)
-                        + len(sentence[i-unk_count-1]))
+                    start = process_question.find(
+                        sentence[i - unk_count - 1], i - unk_count - 2
+                    ) + len(sentence[i - unk_count - 1])
 
-                    end = process_question.find(sentence[i], i-1)
-                    # print(process_question[start : end])
-                    key_word.append(process_question[start: end])
+                    end = process_question.find(sentence[i], i - 1)
+                    key_word.append(process_question[start:end])
                     unk_count = 0
 
                 elif unk_count != 0 and sentence[i] == "[UNK]":
@@ -94,23 +88,26 @@ def test():
                     else:
                         key_word.append(sentence[i])
 
-            # 刪除padding和不必要的符號
-            if(len(key_word) == 0):
+            # 如果長度是0，表示沒有關鍵字
+            if len(key_word) == 0:
                 print("no keyword")
                 continue
 
+            # 刪除句首逗號
             if key_word[0] == "，":
                 key_word.remove("，")
 
+            # 刪除句尾的padding
             key_word = [x for x in key_word if x != "[PAD]"]
 
+            # 刪除多餘的逗號，若是刪除完後長度為0，則表示沒有關鍵字
             flag = True
             while True:
-                if(len(key_word) == 0):
+                if len(key_word) == 0:
                     print("no keyword")
                     flag = False
                     break
-                if key_word[-1] == '，':
+                if key_word[-1] == "，":
                     key_word.pop()
                 else:
                     break

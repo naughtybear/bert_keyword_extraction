@@ -46,6 +46,7 @@ def preprocess(tokenizer, data_version, max_len=-1):
         # 刪除括號內英文
         questions[i] = re.sub("\\([a-z A-Z \\-]*\\)", "", questions[i])
         questions[i] = re.sub("，+", "，", questions[i])
+        questions[i] = re.sub("？", "?", questions[i])
         # 把每個關鍵字都切出來
         key_token = keys[i].split('，')
 
@@ -57,7 +58,7 @@ def preprocess(tokenizer, data_version, max_len=-1):
         last = 1
         search_start = 1
         label = ["[PAD]"]
-        question_token = ["[CLS]"] + tokenizer.tokenize(questions[i])
+        question_token = ["[CLS]"] + tokenizer.tokenize(questions[i]) + ["[SEP]"]
         for token in key_token:
             token = tokenizer.tokenize(token)
             flag = True
@@ -120,5 +121,6 @@ def preprocess(tokenizer, data_version, max_len=-1):
 
 
 if __name__ == "__main__":
-    tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-    preprocess(tokenizer=tokenizer, data_version=7, max_len=512)
+    tokenizer = BertTokenizer.from_pretrained("bert-base-chinese")
+    # tokenizer = BertTokenizer.from_pretrained("hfl/chinese-bert-wwm-ext")
+    preprocess(tokenizer=tokenizer, data_version=8, max_len=512)
