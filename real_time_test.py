@@ -14,16 +14,14 @@ PRETRAINED_MODEL_NAME = "hfl/chinese-bert-wwm-ext"
 
 def test():
     tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)
-    (_, tokenized_question, labeled_key, max_len) = pickle.load(
-        open("D:/python/keyword_extraction/pickle/train_data.pkl", "rb")
-    )
-    model = torch.load("D:/python/keyword_extraction/pickle/model_v5.pkl")
+    max_len = 512
+    model = torch.load("D:/python/keyword_extraction/pickle/model_v7.pkl")
     model.cuda()
     model.eval()
 
     with torch.no_grad():
         while True:
-            sentence = input("")
+            sentence = input(">>")
             if sentence == "quit":
                 break
             process_question = re.sub("\\s+", "，", sentence)
@@ -33,12 +31,12 @@ def test():
             process_question = re.sub("，+", "，", process_question)
             # 刪除括號內英文
             process_question = re.sub("\\([a-z A-Z \\-]*\\)", "", process_question)
-            if len(process_question) > max_len:
+            if len(process_question) > max_len - 2:
                 print("The sentence is too long")
                 continue
 
             # 將輸入加入cls並padding到max len
-            sentence = ["[CLS]"] + tokenizer.tokenize(process_question)
+            sentence = ["[CLS]"] + tokenizer.tokenize(process_question) + ["[SEP]"]
             sentence = sentence + ["[PAD]"] * (max_len - len(sentence))
 
             # print(sentence)
@@ -50,9 +48,12 @@ def test():
             sentence_ids = torch.tensor([sentence_ids], dtype=torch.long).to(DEVICE)
             mask = torch.tensor([mask], dtype=torch.long).to(DEVICE)
 
+            print(sentence_ids)
+            print(mask)
             output = model(sentence_ids, token_type_ids=None, attention_mask=mask)
             output = output[0].detach().cpu().numpy()
             prediction = [list(p) for p in np.argmax(output, axis=2)]
+            print(prediction)
 
             # 刪除英文前面的 ##
             for i in range(len(sentence)):
