@@ -1,0 +1,6 @@
+[core]
+    remote = myssh
+['remote "myssh"']
+    url = ssh://35.194.185.23/model_storage/
+    keyfile = C:/Users/Simon Chen/Desktop/simonprivatekey.ppk
+    ask_password = true

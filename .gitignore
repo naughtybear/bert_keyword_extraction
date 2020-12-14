@@ -2,3 +2,4 @@ pickle/
 .vscode/
 __pycache__/
 data/
+/pickle

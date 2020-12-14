@@ -1,0 +1,5 @@
+outs:
+- md5: dd78dd7260059919ea31b193630fcd13.dir
+  size: 2786747656
+  nfiles: 9
+  path: pickle
